@@ -1,0 +1,161 @@
+name: GitHub Trending Auto Blog
+
+on:
+  schedule:
+    # Monday 06:00 JST (Sunday 21:00 UTC) - Collect trending and generate articles
+    - cron: '0 21 * * 0'
+
+    # Daily 07:00 JST (22:00 UTC previous day) - Post 2 articles
+    - cron: '0 22 * * *'
+
+    # Sunday 18:00 JST (09:00 UTC) - Bulk post remaining articles
+    - cron: '0 9 * * 0'
+
+  # Allow manual workflow trigger
+  workflow_dispatch:
+    inputs:
+      job_type:
+        description: 'Job to run'
+        required: true
+        default: 'collect_and_generate'
+        type: choice
+        options:
+          - collect_and_generate
+          - daily_post
+          - bulk_post
+
+jobs:
+  # Job 1: Collect trending repos and generate articles (Monday 06:00 JST)
+  collect_and_generate:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 21 * * 0' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'collect_and_generate')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Initialize database
+        run: python scripts/init_db.py
+
+      - name: Fetch trending repositories
+        run: python scripts/fetch_trending.py
+
+      - name: Fetch README and metadata
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+        run: python scripts/fetch_readme_meta.py
+
+      - name: Generate articles with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/anthropic_generate.py
+
+      - name: Upload database as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: articles-db
+          path: db/articles.db
+          retention-days: 7
+
+      - name: Upload generated data
+        uses: actions/upload-artifact@v3
+        with:
+          name: generated-data
+          path: data/
+          retention-days: 3
+
+  # Job 2: Daily post 2 articles (Every day 07:00 JST)
+  daily_post:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 22 * * *' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'daily_post')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download database artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: articles-db
+          path: db/
+        continue-on-error: true
+
+      - name: Post 2 articles
+        env:
+          BLOG_API_URL: ${{ secrets.BLOG_API_URL }}
+          BLOG_API_KEY: ${{ secrets.BLOG_API_KEY }}
+        run: python scripts/post_scheduler.py --limit 2
+
+      - name: Upload updated database
+        uses: actions/upload-artifact@v3
+        with:
+          name: articles-db
+          path: db/articles.db
+          retention-days: 7
+
+  # Job 3: Bulk post all remaining articles (Sunday 18:00 JST)
+  sunday_bulk_post:
+    runs-on: ubuntu-latest
+    if: github.event.schedule == '0 9 * * 0' || (github.event_name == 'workflow_dispatch' && github.event.inputs.job_type == 'bulk_post')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download database artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: articles-db
+          path: db/
+        continue-on-error: true
+
+      - name: Bulk post all pending articles
+        env:
+          BLOG_API_URL: ${{ secrets.BLOG_API_URL }}
+          BLOG_API_KEY: ${{ secrets.BLOG_API_KEY }}
+        run: python scripts/post_scheduler.py --bulk
+
+      - name: Upload updated database
+        uses: actions/upload-artifact@v3
+        with:
+          name: articles-db
+          path: db/articles.db
+          retention-days: 7
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: post-logs
+          path: logs/
+          retention-days: 7
+        if: always()
