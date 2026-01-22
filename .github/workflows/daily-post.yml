@@ -1,0 +1,48 @@
+name: Daily Post - 2 Articles
+
+on:
+  schedule:
+    # Runs every day at 07:00 JST (22:00 UTC previous day)
+    - cron: '0 22 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  daily-post:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Download database artifact (if available)
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: articles-db
+          path: db/
+
+      - name: Post 2 articles to blog
+        env:
+          BLOG_API_URL: ${{ secrets.BLOG_API_URL }}
+          BLOG_API_KEY: ${{ secrets.BLOG_API_KEY }}
+          HEADER_IMAGE_URL: ${{ secrets.HEADER_IMAGE_URL }}
+        run: |
+          python scripts/post_scheduler.py --limit 2
+
+      - name: Commit and push database
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add db/articles.db
+          git diff --quiet && git diff --staged --quiet || git commit -m "📤 Posted 2 articles - $(date +'%Y-%m-%d %H:%M')"
+          git push

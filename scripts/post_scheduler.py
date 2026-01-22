@@ -25,6 +25,7 @@ load_dotenv()
 # Configuration
 BLOG_API_URL = os.getenv("BLOG_API_URL")
 BLOG_API_KEY = os.getenv("BLOG_API_KEY")
+HEADER_IMAGE_URL = os.getenv("HEADER_IMAGE_URL")
 TIMEOUT = 30.0
 MAX_RETRIES = 3
 
@@ -107,16 +108,21 @@ def post_article(article: dict) -> bool:
 
     # Build payload
     payload = {
-        "title": generate_title(owner, repo),
         "slug": generate_slug(owner, repo),
-        "content_md": article["markdown"],
+        "title": generate_title(owner, repo),
+        "body": article["markdown"],
+        "category": "テクノロジー",
         "tags": generate_tags(article.get("license")),
         "status": "published",
-        "published_at": datetime.now(timezone.utc).isoformat()
+        "publishAt": datetime.now(timezone.utc).isoformat()
     }
 
+    # Add header image if configured
+    if HEADER_IMAGE_URL:
+        payload["headerImageUrl"] = HEADER_IMAGE_URL
+
     headers = {
-        "Authorization": f"Bearer {BLOG_API_KEY}",
+        "x-api-key": BLOG_API_KEY,
         "Content-Type": "application/json"
     }
 

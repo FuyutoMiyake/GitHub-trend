@@ -23,7 +23,7 @@ load_dotenv()
 
 # Configuration
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-MODEL = "claude-3-5-sonnet-20241022"
+MODEL = "claude-sonnet-4-5-20250929"
 MAX_TOKENS = 4096
 MAX_README_LENGTH = 8000
 MAX_RETRIES = 3
@@ -47,7 +47,8 @@ SYSTEM_INSTRUCTION = """あなたは専門技術と社会実装の両面を理�
 【出力形式】
 - Markdown形式
 - 文字数：1800〜2500字程度
-- 見出しはH2（##）〜H3（###）を使用
+- 見出しはH2（##）とH3（###）のみを使用（H1は絶対に使用しない）
+- 記事は必ずH2（##）から開始すること（冒頭にH1タイトルを追加しない）
 - コードブロックや表を適宜活用
 
 【スタイルガイドライン】
@@ -91,6 +92,8 @@ USER_INSTRUCTION_TEMPLATE = """以下のGitHubリポジトリのREADMEの内容�
 - README全文をそのまま転載しないこと
 - 技術的正確性を保ちつつ、非専門家にも理解できる表現を使用
 - 記事末尾に必ず出典とライセンス情報を明記
+- H1（#）は使用せず、必ずH2（##）から記事を開始すること
+- 記事冒頭にタイトル行（H1）を追加しないこと
 """
 
 

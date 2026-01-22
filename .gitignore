@@ -2,8 +2,7 @@
 .env
 
 # Database
-db/articles.db
-db/*.db
+# db/articles.db  # GitHub Actionsで使用するため追跡
 
 # Temporary data files
 data/*.json

@@ -1,0 +1,66 @@
+name: Collect Trending & Generate Articles
+
+on:
+  schedule:
+    # Runs every Monday at 06:00 JST (Sunday 21:00 UTC)
+    - cron: '0 21 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  collect-and-generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Create data directory
+        run: |
+          mkdir -p data db
+
+      - name: Initialize database
+        run: |
+          python scripts/init_db.py
+
+      - name: Fetch trending repositories
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+        run: |
+          python scripts/fetch_trending.py
+
+      - name: Fetch README and metadata
+        env:
+          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+        run: |
+          python scripts/fetch_readme_meta.py
+
+      - name: Generate articles with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python scripts/anthropic_generate.py
+
+      - name: Upload database artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: articles-db
+          path: db/articles.db
+          retention-days: 30
+
+      - name: Commit and push database
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add db/articles.db data/*.json
+          git diff --quiet && git diff --staged --quiet || git commit -m "📝 Auto-generated articles - $(date +'%Y-%m-%d')"
+          git push
