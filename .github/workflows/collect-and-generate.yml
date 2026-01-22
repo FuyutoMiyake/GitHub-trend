@@ -34,13 +34,13 @@ jobs:
 
       - name: Fetch trending repositories
         env:
-          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+          GITHUB_TOKEN_PAT: ${{ secrets.GH_PAT }}
         run: |
           python scripts/fetch_trending.py
 
       - name: Fetch README and metadata
         env:
-          GITHUB_TOKEN_PAT: ${{ secrets.GITHUB_TOKEN_PAT }}
+          GITHUB_TOKEN_PAT: ${{ secrets.GH_PAT }}
         run: |
           python scripts/fetch_readme_meta.py
 
